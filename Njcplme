@@ -1,0 +1,147 @@
+local player = game.Players.LocalPlayer
+local gui = Instance.new("ScreenGui")
+gui.Parent = player:WaitForChild("PlayerGui")
+
+-- Creare Frame principal
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 200, 0, 300)
+mainFrame.Position = UDim2.new(0.5, -100, 0.3, 0)
+mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+mainFrame.BackgroundTransparency = 0.2
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = gui
+
+-- UI List Layout pentru aranjare verticală
+local layout = Instance.new("UIListLayout")
+layout.Parent = mainFrame
+layout.Padding = UDim.new(0, 10)
+layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- Funcție pentru crearea butoanelor
+local function createButton(text, callback)
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(0.8, 0, 0, 40)
+    button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.Font = Enum.Font.Gotham
+    button.TextSize = 16
+    button.Text = text
+    button.Parent = mainFrame
+
+    button.MouseButton1Click:Connect(callback)
+end
+
+-- 🔴 ESP: Evidențiază doar inamicii și RIG-urile (NPC-uri)
+local espEnabled = false
+
+local function toggleESP()
+    espEnabled = not espEnabled
+    print("ESP: " .. tostring(espEnabled))
+
+    for _, character in pairs(game.Workspace:GetChildren()) do
+        if character:IsA("Model") and character:FindFirstChild("Humanoid") and character ~= player.Character then
+            if espEnabled then
+                if not character:FindFirstChild("ESPHighlight") then
+                    local highlight = Instance.new("Highlight")
+                    highlight.FillColor = Color3.fromRGB(255, 0, 0)
+                    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                    highlight.Parent = character
+                    highlight.Name = "ESPHighlight"
+                end
+            else
+                if character:FindFirstChild("ESPHighlight") then
+                    character:FindFirstChild("ESPHighlight"):Destroy()
+                end
+            end
+        end
+    end
+end
+
+-- ✈️ Fly: Necesită apăsarea tastei G pentru a funcționa
+local flyReady = false
+local flying = false
+local flyConnection
+local speed = 50
+
+local function enableFly()
+    flyReady = true -- Marchez că fly-ul a fost activat din UI
+end
+
+local function toggleFly()
+    if not flyReady then return end
+    flying = not flying
+    print("Fly: " .. tostring(flying))
+
+    local humanoidRootPart = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
+
+    if flying then
+        flyConnection = game:GetService("RunService").RenderStepped:Connect(function()
+            local moveDirection = Vector3.new(0, 0, 0)
+            local userInput = game:GetService("UserInputService")
+
+            if userInput:IsKeyDown(Enum.KeyCode.W) then moveDirection = moveDirection + Vector3.new(0, 0, -1) end
+            if userInput:IsKeyDown(Enum.KeyCode.S) then moveDirection = moveDirection + Vector3.new(0, 0, 1) end
+            if userInput:IsKeyDown(Enum.KeyCode.A) then moveDirection = moveDirection + Vector3.new(-1, 0, 0) end
+            if userInput:IsKeyDown(Enum.KeyCode.D) then moveDirection = moveDirection + Vector3.new(1, 0, 0) end
+            if userInput:IsKeyDown(Enum.KeyCode.Space) then moveDirection = moveDirection + Vector3.new(0, 1, 0) end
+            if userInput:IsKeyDown(Enum.KeyCode.LeftControl) then moveDirection = moveDirection + Vector3.new(0, -1, 0) end
+
+            humanoidRootPart.Velocity = moveDirection.Unit * speed
+        end)
+    else
+        if flyConnection then
+            flyConnection:Disconnect()
+        end
+    end
+end
+
+-- 🔵 NoClip: Acum este toggle (pornit/oprit)
+local noclipActive = false
+local noclipConnection
+
+local function toggleNoClip()
+    noclipActive = not noclipActive
+    print("NoClip: " .. tostring(noclipActive))
+
+    if noclipActive then
+        noclipConnection = game:GetService("RunService").Stepped:Connect(function()
+            for _, part in pairs(player.Character:GetChildren()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
+            end
+        end)
+    else
+        if noclipConnection then
+            noclipConnection:Disconnect()
+        end
+        for _, part in pairs(player.Character:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = true
+            end
+        end
+    end
+end
+
+-- 🔘 Creare butoane cu funcții
+createButton("ESP", toggleESP)
+createButton("NoClip", toggleNoClip)
+createButton("Fly (G)", enableFly)
+
+-- 🎛️ Tasta "P" → Ascunde/Afișează UI-ul
+local userInputService = game:GetService("UserInputService")
+local isVisible = true
+
+userInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.P then
+        isVisible = not isVisible
+        mainFrame.Visible = isVisible
+    elseif input.KeyCode == Enum.KeyCode.G then
+        toggleFly()
+    end
+end)
